@@ -1,0 +1,10 @@
+autoreconf.after
+autoreconf.before
+*.log
+*.substvars
+tmp
+prometheus-snmp-exporter
+.debhelper
+debhelper-build-stamp
+files
+*.debhelper

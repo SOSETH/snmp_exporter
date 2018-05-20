@@ -1,0 +1,15 @@
+#!/usr/bin/make -f
+
+
+export DH_OPTIONS
+export DH_GOPKG=github.com/prometheus/snmp_exporter
+
+%:
+	dh $@ --buildsystem=golang --with=golang
+
+override_dh_auto_test:
+	# Skip :/
+
+override_dh_auto_install:
+	dh_auto_install $@
+	rm debian/prometheus-snmp-exporter/usr/bin/generator
