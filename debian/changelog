@@ -1,3 +1,9 @@
+prometheus-snmp-exporter (0.15.0-d0739fd) unstable; urgency=medium
+
+  * Bump to upstream release 0.15
+
+ -- Maximilian Falkenstein <mfalkenstein@sos.ethz.ch>  Tue, 16 Apr 2019 12:47:58 +0200
+
 prometheus-snmp-exporter (0.10.0-e7d1c92) unstable; urgency=medium
 
   * Initial release, corresponds to upstream commit e7d1c92
