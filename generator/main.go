@@ -64,7 +64,7 @@ func generateConfig(nodes *Node, nameToNode map[string]*Node) {
 	out, err := yaml.Marshal(outputConfig)
 	config.DoNotHideSecrets = false
 	if err != nil {
-		log.Fatalf("Error marshalling yml: %s", err)
+		log.Fatalf("Error marshaling yml: %s", err)
 	}
 
 	// Check the generated config to catch auth/version issues.
@@ -77,6 +77,7 @@ func generateConfig(nodes *Node, nameToNode map[string]*Node) {
 	if err != nil {
 		log.Fatalf("Error opening output file: %s", err)
 	}
+	out = append([]byte("# WARNING: This file was auto-generated using snmp_exporter generator, manual changes will be lost.\n"), out...)
 	_, err = f.Write(out)
 	if err != nil {
 		log.Fatalf("Error writing to output file: %s", err)
@@ -97,8 +98,10 @@ func main() {
 	command := kingpin.Parse()
 
 	parseErrors := initSNMP()
-	log.Warnf("NetSNMP reported %d parse errors", len(strings.Split(parseErrors, "\n")))
 
+	if len(parseErrors) != 0 {
+		log.Warnf("NetSNMP reported %d parse errors", len(strings.Split(parseErrors, "\n")))
+	}
 	nodes := getMIBTree()
 	nameToNode := prepareTree(nodes)
 
@@ -113,7 +116,12 @@ func main() {
 			if n.FixedSize != 0 {
 				t = fmt.Sprintf("%s(%d)", n.Type, n.FixedSize)
 			}
-			fmt.Printf("%s %s %s %q %q %s %s\n", n.Oid, n.Label, t, n.TextualConvention, n.Hint, n.Indexes, n.Description)
+			implied := ""
+			if n.ImpliedIndex {
+				implied = "(implied)"
+			}
+			fmt.Printf("%s %s %s %q %q %s%s %v %s\n",
+				n.Oid, n.Label, t, n.TextualConvention, n.Hint, n.Indexes, implied, n.EnumValues, n.Description)
 		})
 	}
 }

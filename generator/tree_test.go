@@ -29,8 +29,8 @@ func TestTreePrepare(t *testing.T) {
 	}{
 		// Descriptions trimmed.
 		{
-			in:  &Node{Oid: "1", Description: "A long   sentance.      Even more detail!"},
-			out: &Node{Oid: "1", Description: "A long sentance"},
+			in:  &Node{Oid: "1", Description: "A long   sentence.      Even more detail!"},
+			out: &Node{Oid: "1", Description: "A long sentence"},
 		},
 		// Indexes copied down.
 		{
@@ -100,10 +100,20 @@ func TestTreePrepare(t *testing.T) {
 			in:  &Node{Oid: "1", Label: "ascii", TextualConvention: "DisplayString"},
 			out: &Node{Oid: "1", Label: "ascii", TextualConvention: "DisplayString", Type: "DisplayString"},
 		},
+		// PhysAddress referencing RFC1213.
+		{
+			in:  &Node{Oid: "1", Label: "mac", TextualConvention: "PhysAddress"},
+			out: &Node{Oid: "1", Label: "mac", TextualConvention: "PhysAddress", Type: "PhysAddress48"},
+		},
 		// UTF-8 string.
 		{
 			in:  &Node{Oid: "1", Label: "utf8", Hint: "255t"},
 			out: &Node{Oid: "1", Label: "utf8", Hint: "255t", Type: "DisplayString"},
+		},
+		// Mix of number and ASCII string.
+		{
+			in:  &Node{Oid: "1", Label: "notascii", Hint: "2d32a", Type: "OCTETSTR"},
+			out: &Node{Oid: "1", Label: "notascii", Hint: "2d32a", Type: "OCTETSTR"},
 		},
 		// Opaques converted.
 		{
@@ -114,9 +124,27 @@ func TestTreePrepare(t *testing.T) {
 			in:  &Node{Oid: "1", Type: "OPAQUE", TextualConvention: "Double"},
 			out: &Node{Oid: "1", Type: "Double", TextualConvention: "Double"},
 		},
+		// RFC 2579 DateAndTime.
+		{
+			in:  &Node{Oid: "1", Type: "DisplayString", TextualConvention: "DateAndTime"},
+			out: &Node{Oid: "1", Type: "DateAndTime", TextualConvention: "DateAndTime"},
+		},
+		// RFC 4100 InetAddress conventions.
+		{
+			in:  &Node{Oid: "1", Type: "OctectString", TextualConvention: "InetAddressIPv4"},
+			out: &Node{Oid: "1", Type: "InetAddressIPv4", TextualConvention: "InetAddressIPv4"},
+		},
+		{
+			in:  &Node{Oid: "1", Type: "OctectString", TextualConvention: "InetAddressIPv6"},
+			out: &Node{Oid: "1", Type: "InetAddressIPv6", TextualConvention: "InetAddressIPv6"},
+		},
+		{
+			in:  &Node{Oid: "1", Type: "OctectString", TextualConvention: "InetAddress"},
+			out: &Node{Oid: "1", Type: "InetAddress", TextualConvention: "InetAddress"},
+		},
 	}
 	for i, c := range cases {
-		// Indexes always end up initilized.
+		// Indexes always end up initialized.
 		walkNode(c.out, func(n *Node) {
 			if n.Indexes == nil {
 				n.Indexes = []string{}
@@ -307,6 +335,9 @@ func TestGenerateConfigModule(t *testing.T) {
 					{Oid: "1.100", Access: "ACCESS_READONLY", Label: "MacAddress", Type: "OCTETSTR", Hint: "1x:"},
 					{Oid: "1.200", Access: "ACCESS_READONLY", Label: "Float", Type: "OPAQUE", TextualConvention: "Float"},
 					{Oid: "1.201", Access: "ACCESS_READONLY", Label: "Double", Type: "OPAQUE", TextualConvention: "Double"},
+					{Oid: "1.202", Access: "ACCESS_READONLY", Label: "DateAndTime", Type: "DisplayString", TextualConvention: "DateAndTime"},
+					{Oid: "1.203", Access: "ACCESS_READONLY", Label: "InetAddressIPv4", Type: "OCTETSTR", TextualConvention: "InetAddressIPv4"},
+					{Oid: "1.204", Access: "ACCESS_READONLY", Label: "InetAddressIPv6", Type: "OCTETSTR", TextualConvention: "InetAddressIPv6"},
 				}},
 			cfg: &ModuleConfig{
 				Walk: []string{"root", "1.3"},
@@ -329,13 +360,13 @@ func TestGenerateConfigModule(t *testing.T) {
 					{
 						Name: "NETADDR",
 						Oid:  "1.4",
-						Type: "IpAddr",
+						Type: "InetAddressIPv4",
 						Help: " - 1.4",
 					},
 					{
 						Name: "IPADDR",
 						Oid:  "1.5",
-						Type: "IpAddr",
+						Type: "InetAddressIPv4",
 						Help: " - 1.5",
 					},
 					{
@@ -404,6 +435,24 @@ func TestGenerateConfigModule(t *testing.T) {
 						Type: "Double",
 						Help: " - 1.201",
 					},
+					{
+						Name: "DateAndTime",
+						Oid:  "1.202",
+						Type: "DateAndTime",
+						Help: " - 1.202",
+					},
+					{
+						Name: "InetAddressIPv4",
+						Oid:  "1.203",
+						Type: "InetAddressIPv4",
+						Help: " - 1.203",
+					},
+					{
+						Name: "InetAddressIPv6",
+						Oid:  "1.204",
+						Type: "InetAddressIPv6",
+						Help: " - 1.204",
+					},
 				},
 			},
 		},
@@ -459,6 +508,40 @@ func TestGenerateConfigModule(t *testing.T) {
 						Oid:  "1.2",
 						Type: "DisplayString",
 						Help: " - 1.2",
+					},
+				},
+			},
+		},
+		// Enums
+		{
+			node: &Node{Oid: "1", Type: "OTHER", Label: "root",
+				Children: []*Node{
+					{Oid: "1.1", Access: "ACCESS_READONLY", Type: "INTEGER", Label: "node1", EnumValues: map[int]string{0: "a"}},
+					{Oid: "1.2", Access: "ACCESS_READONLY", Type: "INTEGER", Label: "node2", EnumValues: map[int]string{0: "b"}},
+				}},
+			cfg: &ModuleConfig{
+				Walk: []string{"root"},
+				Overrides: map[string]MetricOverrides{
+					"node1": MetricOverrides{Type: "EnumAsInfo"},
+					"node2": MetricOverrides{Type: "EnumAsStateSet"},
+				},
+			},
+			out: &config.Module{
+				Walk: []string{"1"},
+				Metrics: []*config.Metric{
+					{
+						Name:       "node1",
+						Oid:        "1.1",
+						Type:       "EnumAsInfo",
+						Help:       " - 1.1",
+						EnumValues: map[int]string{0: "a"},
+					},
+					{
+						Name:       "node2",
+						Oid:        "1.2",
+						Type:       "EnumAsStateSet",
+						Help:       " - 1.2",
+						EnumValues: map[int]string{0: "b"},
 					},
 				},
 			},
@@ -643,6 +726,24 @@ func TestGenerateConfigModule(t *testing.T) {
 								Children: []*Node{
 									{Oid: "1.6.1.1", Access: "ACCESS_READONLY", Label: "fixedSizeIndex", Type: "OCTETSTR", FixedSize: 8},
 									{Oid: "1.6.1.2", Access: "ACCESS_READONLY", Label: "fixedSizeFoo", Type: "INTEGER"}}}}},
+					{Oid: "1.7", Label: "impliedSize",
+						Children: []*Node{
+							{Oid: "1.7.1", Label: "impliedSizeEntry", Indexes: []string{"impliedSizeIndex"}, ImpliedIndex: true,
+								Children: []*Node{
+									{Oid: "1.7.1.1", Access: "ACCESS_READONLY", Label: "impliedSizeIndex", Type: "OCTETSTR"},
+									{Oid: "1.7.1.2", Access: "ACCESS_READONLY", Label: "impliedSizeFoo", Type: "INTEGER"}}}}},
+					{Oid: "1.8", Label: "ipv4",
+						Children: []*Node{
+							{Oid: "1.8.1", Label: "ipv4Entry", Indexes: []string{"ipv4Index"},
+								Children: []*Node{
+									{Oid: "1.8.1.1", Access: "ACCESS_READONLY", Label: "ipv4Index", Type: "OCTETSTR", TextualConvention: "InetAddressIPv4"},
+									{Oid: "1.8.1.2", Access: "ACCESS_READONLY", Label: "ipv4Foo", Type: "INTEGER"}}}}},
+					{Oid: "1.9", Label: "ipv6",
+						Children: []*Node{
+							{Oid: "1.9.1", Label: "ipv6Entry", Indexes: []string{"ipv6Index"},
+								Children: []*Node{
+									{Oid: "1.9.1.1", Access: "ACCESS_READONLY", Label: "ipv6Index", Type: "OCTETSTR", TextualConvention: "InetAddressIPv6"},
+									{Oid: "1.9.1.2", Access: "ACCESS_READONLY", Label: "ipv6Foo", Type: "INTEGER"}}}}},
 				}},
 			cfg: &ModuleConfig{
 				Walk: []string{"1"},
@@ -702,11 +803,11 @@ func TestGenerateConfigModule(t *testing.T) {
 						Name: "ipaddrIndex",
 						Oid:  "1.3.1.1",
 						Help: " - 1.3.1.1",
-						Type: "IpAddr",
+						Type: "InetAddressIPv4",
 						Indexes: []*config.Index{
 							{
 								Labelname: "ipaddrIndex",
-								Type:      "IpAddr",
+								Type:      "InetAddressIPv4",
 							},
 						},
 					},
@@ -718,7 +819,7 @@ func TestGenerateConfigModule(t *testing.T) {
 						Indexes: []*config.Index{
 							{
 								Labelname: "ipaddrIndex",
-								Type:      "IpAddr",
+								Type:      "InetAddressIPv4",
 							},
 						},
 					},
@@ -726,11 +827,11 @@ func TestGenerateConfigModule(t *testing.T) {
 						Name: "netaddrIndex",
 						Oid:  "1.4.1.1",
 						Help: " - 1.4.1.1",
-						Type: "IpAddr",
+						Type: "InetAddressIPv4",
 						Indexes: []*config.Index{
 							{
 								Labelname: "netaddrIndex",
-								Type:      "IpAddr",
+								Type:      "InetAddressIPv4",
 							},
 						},
 					},
@@ -742,7 +843,7 @@ func TestGenerateConfigModule(t *testing.T) {
 						Indexes: []*config.Index{
 							{
 								Labelname: "netaddrIndex",
-								Type:      "IpAddr",
+								Type:      "InetAddressIPv4",
 							},
 						},
 					},
@@ -796,6 +897,127 @@ func TestGenerateConfigModule(t *testing.T) {
 							},
 						},
 					},
+					{
+						Name: "impliedSizeIndex",
+						Oid:  "1.7.1.1",
+						Help: " - 1.7.1.1",
+						Type: "OctetString",
+						Indexes: []*config.Index{
+							{
+								Labelname: "impliedSizeIndex",
+								Type:      "OctetString",
+								Implied:   true,
+							},
+						},
+					},
+					{
+						Name: "impliedSizeFoo",
+						Oid:  "1.7.1.2",
+						Help: " - 1.7.1.2",
+						Type: "gauge",
+						Indexes: []*config.Index{
+							{
+								Labelname: "impliedSizeIndex",
+								Type:      "OctetString",
+								Implied:   true,
+							},
+						},
+					},
+					{
+						Name: "ipv4Index",
+						Oid:  "1.8.1.1",
+						Help: " - 1.8.1.1",
+						Type: "InetAddressIPv4",
+						Indexes: []*config.Index{
+							{
+								Labelname: "ipv4Index",
+								Type:      "InetAddressIPv4",
+							},
+						},
+					},
+					{
+						Name: "ipv4Foo",
+						Oid:  "1.8.1.2",
+						Help: " - 1.8.1.2",
+						Type: "gauge",
+						Indexes: []*config.Index{
+							{
+								Labelname: "ipv4Index",
+								Type:      "InetAddressIPv4",
+							},
+						},
+					},
+					{
+						Name: "ipv6Index",
+						Oid:  "1.9.1.1",
+						Help: " - 1.9.1.1",
+						Type: "InetAddressIPv6",
+						Indexes: []*config.Index{
+							{
+								Labelname: "ipv6Index",
+								Type:      "InetAddressIPv6",
+							},
+						},
+					},
+					{
+						Name: "ipv6Foo",
+						Oid:  "1.9.1.2",
+						Help: " - 1.9.1.2",
+						Type: "gauge",
+						Indexes: []*config.Index{
+							{
+								Labelname: "ipv6Index",
+								Type:      "InetAddressIPv6",
+							},
+						},
+					},
+				},
+			},
+		},
+		// One table lookup, lookup not walked, labels kept.
+		{
+			node: &Node{Oid: "1", Label: "root",
+				Children: []*Node{
+					{Oid: "1.1", Label: "octet",
+						Children: []*Node{
+							{Oid: "1.1.1", Label: "octetEntry", Indexes: []string{"octetIndex"},
+								Children: []*Node{
+									{Oid: "1.1.1.1", Access: "ACCESS_READONLY", Label: "octetIndex", Type: "INTEGER"},
+									{Oid: "1.1.1.2", Access: "ACCESS_READONLY", Label: "octetDesc", Type: "OCTETSTR"},
+									{Oid: "1.1.1.3", Access: "ACCESS_READONLY", Label: "octetFoo", Type: "INTEGER"}}}}}}},
+			cfg: &ModuleConfig{
+				Walk: []string{"octetFoo"},
+				Lookups: []*Lookup{
+					{
+						SourceIndexes: []string{"octetIndex"},
+						Lookup:        "octetDesc",
+					},
+				},
+			},
+			out: &config.Module{
+				// Walk is expanded to include the lookup OID.
+				Walk: []string{"1.1.1.2", "1.1.1.3"},
+				Metrics: []*config.Metric{
+					{
+						Name: "octetFoo",
+						Oid:  "1.1.1.3",
+						Help: " - 1.1.1.3",
+						Type: "gauge",
+						Indexes: []*config.Index{
+							{
+								Labelname: "octetIndex",
+								Type:      "gauge",
+							},
+						},
+						Lookups: []*config.Lookup{
+							{
+								Labels:    []string{"octetIndex"},
+								Labelname: "octetDesc",
+								Type:      "OctetString",
+								Oid:       "1.1.1.2",
+							},
+						},
+					},
 				},
 			},
 		},
@@ -814,8 +1036,9 @@ func TestGenerateConfigModule(t *testing.T) {
 				Walk: []string{"octetFoo"},
 				Lookups: []*Lookup{
 					{
-						OldIndex: "octetIndex",
-						NewIndex: "octetDesc",
+						SourceIndexes:     []string{"octetIndex"},
+						Lookup:            "octetDesc",
+						DropSourceIndexes: true,
 					},
 				},
 			},
@@ -830,16 +1053,19 @@ func TestGenerateConfigModule(t *testing.T) {
 						Type: "gauge",
 						Indexes: []*config.Index{
 							{
-								Labelname: "octetDesc",
+								Labelname: "octetIndex",
 								Type:      "gauge",
 							},
 						},
 						Lookups: []*config.Lookup{
 							{
-								Labels:    []string{"octetDesc"},
+								Labels:    []string{"octetIndex"},
 								Labelname: "octetDesc",
 								Type:      "OctetString",
 								Oid:       "1.1.1.2",
+							},
+							{
+								Labelname: "octetIndex",
 							},
 						},
 					},
@@ -861,8 +1087,9 @@ func TestGenerateConfigModule(t *testing.T) {
 				Walk: []string{"octetFoo"},
 				Lookups: []*Lookup{
 					{
-						OldIndex: "octetIndex",
-						NewIndex: "1.1.1.2",
+						SourceIndexes:     []string{"octetIndex"},
+						Lookup:            "1.1.1.2",
+						DropSourceIndexes: true,
 					},
 				},
 			},
@@ -877,16 +1104,78 @@ func TestGenerateConfigModule(t *testing.T) {
 						Type: "gauge",
 						Indexes: []*config.Index{
 							{
-								Labelname: "octetDesc",
+								Labelname: "octetIndex",
 								Type:      "gauge",
 							},
 						},
 						Lookups: []*config.Lookup{
 							{
-								Labels:    []string{"octetDesc"},
+								Labels:    []string{"octetIndex"},
 								Labelname: "octetDesc",
 								Type:      "OctetString",
 								Oid:       "1.1.1.2",
+							},
+							{
+								Labelname: "octetIndex",
+							},
+						},
+					},
+				},
+			},
+		},
+		// Multi-index table lookup, lookup not walked.
+		{
+			node: &Node{Oid: "1", Label: "root",
+				Children: []*Node{
+					{Oid: "1.1", Label: "octet",
+						Children: []*Node{
+							{Oid: "1.1.1", Label: "octetEntry", Indexes: []string{"octetIndex", "octetIndex2"},
+								Children: []*Node{
+									{Oid: "1.1.1.1", Access: "ACCESS_READONLY", Label: "octetIndex", Type: "INTEGER"},
+									{Oid: "1.1.1.2", Access: "ACCESS_READONLY", Label: "octetIndex2", Type: "INTEGER"},
+									{Oid: "1.1.1.3", Access: "ACCESS_READONLY", Label: "octetDesc", Type: "OCTETSTR"},
+									{Oid: "1.1.1.4", Access: "ACCESS_READONLY", Label: "octetFoo", Type: "INTEGER"}}}}}}},
+			cfg: &ModuleConfig{
+				Walk: []string{"octetFoo"},
+				Lookups: []*Lookup{
+					{
+						SourceIndexes:     []string{"octetIndex", "octetIndex2"},
+						Lookup:            "octetDesc",
+						DropSourceIndexes: true,
+					},
+				},
+			},
+			out: &config.Module{
+				// Walk is expanded to include the lookup OID.
+				Walk: []string{"1.1.1.3", "1.1.1.4"},
+				Metrics: []*config.Metric{
+					{
+						Name: "octetFoo",
+						Oid:  "1.1.1.4",
+						Help: " - 1.1.1.4",
+						Type: "gauge",
+						Indexes: []*config.Index{
+							{
+								Labelname: "octetIndex",
+								Type:      "gauge",
+							},
+							{
+								Labelname: "octetIndex2",
+								Type:      "gauge",
+							},
+						},
+						Lookups: []*config.Lookup{
+							{
+								Labels:    []string{"octetIndex", "octetIndex2"},
+								Labelname: "octetDesc",
+								Type:      "OctetString",
+								Oid:       "1.1.1.3",
+							},
+							{
+								Labelname: "octetIndex",
+							},
+							{
+								Labelname: "octetIndex2",
 							},
 						},
 					},
@@ -931,8 +1220,9 @@ func TestGenerateConfigModule(t *testing.T) {
 				Walk: []string{"octet^Foo"},
 				Lookups: []*Lookup{
 					{
-						OldIndex: "octet&Index",
-						NewIndex: "1.1.1.2",
+						SourceIndexes:     []string{"octet&Index"},
+						Lookup:            "1.1.1.2",
+						DropSourceIndexes: true,
 					},
 				},
 			},
@@ -947,16 +1237,19 @@ func TestGenerateConfigModule(t *testing.T) {
 						Help: " - 1.1.1.3",
 						Indexes: []*config.Index{
 							{
-								Labelname: "octet_Desc",
+								Labelname: "octet_Index",
 								Type:      "gauge",
 							},
 						},
 						Lookups: []*config.Lookup{
 							{
-								Labels:    []string{"octet_Desc"},
+								Labels:    []string{"octet_Index"},
 								Labelname: "octet_Desc",
 								Type:      "OctetString",
 								Oid:       "1.1.1.2",
+							},
+							{
+								Labelname: "octet_Index",
 							},
 						},
 					},
@@ -1090,8 +1383,9 @@ func TestGenerateConfigModule(t *testing.T) {
 				Walk: []string{"1.1.1.2.100", "1.1.1.4.100", "1.1.1.2.200"},
 				Lookups: []*Lookup{
 					{
-						OldIndex: "tableIndex",
-						NewIndex: "tableDesc",
+						SourceIndexes:     []string{"tableIndex"},
+						Lookup:            "tableDesc",
+						DropSourceIndexes: true,
 					},
 				},
 			},
@@ -1105,16 +1399,19 @@ func TestGenerateConfigModule(t *testing.T) {
 						Help: " - 1.1.1.2",
 						Indexes: []*config.Index{
 							{
-								Labelname: "tableDesc",
+								Labelname: "tableIndex",
 								Type:      "gauge",
 							},
 						},
 						Lookups: []*config.Lookup{
 							{
-								Labels:    []string{"tableDesc"},
+								Labels:    []string{"tableIndex"},
 								Labelname: "tableDesc",
 								Type:      "OctetString",
 								Oid:       "1.1.1.3",
+							},
+							{
+								Labelname: "tableIndex",
 							},
 						},
 					},
@@ -1125,16 +1422,19 @@ func TestGenerateConfigModule(t *testing.T) {
 						Help: " - 1.1.1.4",
 						Indexes: []*config.Index{
 							{
-								Labelname: "tableDesc",
+								Labelname: "tableIndex",
 								Type:      "gauge",
 							},
 						},
 						Lookups: []*config.Lookup{
 							{
-								Labels:    []string{"tableDesc"},
+								Labels:    []string{"tableIndex"},
 								Labelname: "tableDesc",
 								Type:      "OctetString",
 								Oid:       "1.1.1.3",
+							},
+							{
+								Labelname: "tableIndex",
 							},
 						},
 					},
@@ -1157,8 +1457,9 @@ func TestGenerateConfigModule(t *testing.T) {
 				Walk: []string{"1.1.1.2.100", "1.1.1.3"},
 				Lookups: []*Lookup{
 					{
-						OldIndex: "tableIndex",
-						NewIndex: "tableDesc",
+						SourceIndexes:     []string{"tableIndex"},
+						Lookup:            "tableDesc",
+						DropSourceIndexes: true,
 					},
 				},
 			},
@@ -1173,16 +1474,19 @@ func TestGenerateConfigModule(t *testing.T) {
 						Help: " - 1.1.1.2",
 						Indexes: []*config.Index{
 							{
-								Labelname: "tableDesc",
+								Labelname: "tableIndex",
 								Type:      "gauge",
 							},
 						},
 						Lookups: []*config.Lookup{
 							{
-								Labels:    []string{"tableDesc"},
+								Labels:    []string{"tableIndex"},
 								Labelname: "tableDesc",
 								Type:      "OctetString",
 								Oid:       "1.1.1.3",
+							},
+							{
+								Labelname: "tableIndex",
 							},
 						},
 					},
@@ -1193,16 +1497,372 @@ func TestGenerateConfigModule(t *testing.T) {
 						Help: " - 1.1.1.3",
 						Indexes: []*config.Index{
 							{
-								Labelname: "tableDesc",
+								Labelname: "tableIndex",
 								Type:      "gauge",
 							},
 						},
 						Lookups: []*config.Lookup{
 							{
-								Labels:    []string{"tableDesc"},
+								Labels:    []string{"tableIndex"},
 								Labelname: "tableDesc",
 								Type:      "OctetString",
 								Oid:       "1.1.1.3",
+							},
+							{
+								Labelname: "tableIndex",
+							},
+						},
+					},
+				},
+			},
+		},
+		// Table with InetAddressType and valid InetAddress.
+		// InetAddressType is added to walk.
+		{
+			node: &Node{Oid: "1", Label: "root",
+				Children: []*Node{
+					{Oid: "1.1", Label: "table",
+						Children: []*Node{
+							{Oid: "1.1.1", Label: "tableEntry", Indexes: []string{"tableIndex"},
+								Children: []*Node{
+									{Oid: "1.1.1.1", Access: "ACCESS_READONLY", Label: "tableIndex", Type: "INTEGER"},
+									{Oid: "1.1.1.2", Access: "ACCESS_READONLY", Label: "tableAddrType", Type: "INTEGER", TextualConvention: "InetAddressType"},
+									{Oid: "1.1.1.3", Access: "ACCESS_READONLY", Label: "tableAddr", Type: "OCTETSTR", TextualConvention: "InetAddress"},
+								}}}}}},
+			cfg: &ModuleConfig{
+				Walk: []string{"1.1.1.3"},
+			},
+			out: &config.Module{
+				Walk: []string{"1.1.1.2", "1.1.1.3"},
+				Metrics: []*config.Metric{
+					{
+						Name: "tableAddr",
+						Oid:  "1.1.1.3",
+						Type: "InetAddress",
+						Help: " - 1.1.1.3",
+						Indexes: []*config.Index{
+							{
+								Labelname: "tableIndex",
+								Type:      "gauge",
+							},
+						},
+					},
+				},
+			},
+		},
+		// Table with InetAddressType and valid InetAddress instance.
+		// InetAddressType is added to walk.
+		{
+			node: &Node{Oid: "1", Label: "root",
+				Children: []*Node{
+					{Oid: "1.1", Label: "table",
+						Children: []*Node{
+							{Oid: "1.1.1", Label: "tableEntry", Indexes: []string{"tableIndex"},
+								Children: []*Node{
+									{Oid: "1.1.1.1", Access: "ACCESS_READONLY", Label: "tableIndex", Type: "INTEGER"},
+									{Oid: "1.1.1.2", Access: "ACCESS_READONLY", Label: "tableAddrType", Type: "INTEGER", TextualConvention: "InetAddressType"},
+									{Oid: "1.1.1.3", Access: "ACCESS_READONLY", Label: "tableAddr", Type: "OCTETSTR", TextualConvention: "InetAddress"},
+								}}}}}},
+			cfg: &ModuleConfig{
+				Walk: []string{"1.1.1.3.42"},
+			},
+			out: &config.Module{
+				Get: []string{"1.1.1.2.42", "1.1.1.3.42"},
+				Metrics: []*config.Metric{
+					{
+						Name: "tableAddr",
+						Oid:  "1.1.1.3",
+						Type: "InetAddress",
+						Help: " - 1.1.1.3",
+						Indexes: []*config.Index{
+							{
+								Labelname: "tableIndex",
+								Type:      "gauge",
+							},
+						},
+					},
+				},
+			},
+		},
+		// Table with InetAddressType and InetAddress in the wrong order.
+		// InetAddress becomes OctetString.
+		{
+			node: &Node{Oid: "1", Label: "root",
+				Children: []*Node{
+					{Oid: "1.1", Label: "table",
+						Children: []*Node{
+							{Oid: "1.1.1", Label: "tableEntry", Indexes: []string{"tableIndex"},
+								Children: []*Node{
+									{Oid: "1.1.1.1", Access: "ACCESS_READONLY", Label: "tableIndex", Type: "INTEGER"},
+									{Oid: "1.1.1.2", Access: "ACCESS_READONLY", Label: "tableAddr", Type: "OCTETSTR", TextualConvention: "InetAddress"},
+									{Oid: "1.1.1.3", Access: "ACCESS_READONLY", Label: "tableAddrType", Type: "INTEGER", TextualConvention: "InetAddressType"},
+								}}}}}},
+			cfg: &ModuleConfig{
+				Walk: []string{"1.1.1.2"},
+			},
+			out: &config.Module{
+				Walk: []string{"1.1.1.2"},
+				Metrics: []*config.Metric{
+					{
+						Name: "tableAddr",
+						Oid:  "1.1.1.2",
+						Type: "OctetString",
+						Help: " - 1.1.1.2",
+						Indexes: []*config.Index{
+							{
+								Labelname: "tableIndex",
+								Type:      "gauge",
+							},
+						},
+					},
+				},
+			},
+		},
+		// Table with InetAddressType and InetAddress index.
+		// Index becomes just InetAddress.
+		{
+			node: &Node{Oid: "1", Label: "root",
+				Children: []*Node{
+					{Oid: "1.1", Label: "table",
+						Children: []*Node{
+							{Oid: "1.1.1", Label: "tableEntry", Indexes: []string{"tableAddrType", "tableAddr"},
+								Children: []*Node{
+									{Oid: "1.1.1.1", Access: "ACCESS_READONLY", Label: "tableAddrType", Type: "INTEGER", TextualConvention: "InetAddressType"},
+									{Oid: "1.1.1.2", Access: "ACCESS_READONLY", Label: "tableAddr", Type: "OCTETSTR", TextualConvention: "InetAddress"},
+								}}}}}},
+			cfg: &ModuleConfig{
+				Walk: []string{"1"},
+			},
+			out: &config.Module{
+				Walk: []string{"1"},
+				Metrics: []*config.Metric{
+					{
+						Name: "tableAddrType",
+						Oid:  "1.1.1.1",
+						Type: "gauge",
+						Help: " - 1.1.1.1",
+						Indexes: []*config.Index{
+							{
+								Labelname: "tableAddr",
+								Type:      "InetAddress",
+							},
+						},
+					},
+					{
+						Name: "tableAddr",
+						Oid:  "1.1.1.2",
+						Type: "InetAddress",
+						Help: " - 1.1.1.2",
+						Indexes: []*config.Index{
+							{
+								Labelname: "tableAddr",
+								Type:      "InetAddress",
+							},
+						},
+					},
+				},
+			},
+		},
+		// Table with InetAddressType and InetAddress index in wrong order gets dropped.
+		{
+			node: &Node{Oid: "1", Label: "root",
+				Children: []*Node{
+					{Oid: "1.1", Label: "table",
+						Children: []*Node{
+							{Oid: "1.1.1", Label: "tableEntry", Indexes: []string{"tableAddr", "tableAddrType"},
+								Children: []*Node{
+									{Oid: "1.1.1.1", Access: "ACCESS_READONLY", Label: "tableAddrType", Type: "INTEGER", TextualConvention: "InetAddressType"},
+									{Oid: "1.1.1.2", Access: "ACCESS_READONLY", Label: "tableAddr", Type: "OCTETSTR", TextualConvention: "InetAddress"},
+								}}}}}},
+			cfg: &ModuleConfig{
+				Walk: []string{"1"},
+			},
+			out: &config.Module{
+				Walk: []string{"1"},
+			},
+		},
+		// Table with InetAddressType and valid InetAddressMissingSize.
+		// InetAddressType is added to walk.
+		{
+			node: &Node{Oid: "1", Label: "root",
+				Children: []*Node{
+					{Oid: "1.1", Label: "table",
+						Children: []*Node{
+							{Oid: "1.1.1", Label: "tableEntry", Indexes: []string{"tableIndex"},
+								Children: []*Node{
+									{Oid: "1.1.1.1", Access: "ACCESS_READONLY", Label: "tableIndex", Type: "INTEGER"},
+									{Oid: "1.1.1.2", Access: "ACCESS_READONLY", Label: "tableAddrType", Type: "INTEGER", TextualConvention: "InetAddressType"},
+									{Oid: "1.1.1.3", Access: "ACCESS_READONLY", Label: "tableAddr", Type: "OCTETSTR", TextualConvention: "InetAddress"},
+								}}}}}},
+			cfg: &ModuleConfig{
+				Walk: []string{"1.1.1.3"},
+				Overrides: map[string]MetricOverrides{
+					"tableAddr": MetricOverrides{Type: "InetAddressMissingSize"},
+				},
+			},
+			out: &config.Module{
+				Walk: []string{"1.1.1.2", "1.1.1.3"},
+				Metrics: []*config.Metric{
+					{
+						Name: "tableAddr",
+						Oid:  "1.1.1.3",
+						Type: "InetAddressMissingSize",
+						Help: " - 1.1.1.3",
+						Indexes: []*config.Index{
+							{
+								Labelname: "tableIndex",
+								Type:      "gauge",
+							},
+						},
+					},
+				},
+			},
+		},
+		// Table with InetAddressType and InetAddressMissingSize in the wrong order.
+		// InetAddressMissingSize becomes OctetString.
+		{
+			node: &Node{Oid: "1", Label: "root",
+				Children: []*Node{
+					{Oid: "1.1", Label: "table",
+						Children: []*Node{
+							{Oid: "1.1.1", Label: "tableEntry", Indexes: []string{"tableIndex"},
+								Children: []*Node{
+									{Oid: "1.1.1.1", Access: "ACCESS_READONLY", Label: "tableIndex", Type: "INTEGER"},
+									{Oid: "1.1.1.2", Access: "ACCESS_READONLY", Label: "tableAddr", Type: "OCTETSTR", TextualConvention: "InetAddress"},
+									{Oid: "1.1.1.3", Access: "ACCESS_READONLY", Label: "tableAddrType", Type: "INTEGER", TextualConvention: "InetAddressType"},
+								}}}}}},
+			cfg: &ModuleConfig{
+				Walk: []string{"1.1.1.2"},
+				Overrides: map[string]MetricOverrides{
+					"tableAddr": MetricOverrides{Type: "InetAddressMissingSize"},
+				},
+			},
+			out: &config.Module{
+				Walk: []string{"1.1.1.2"},
+				Metrics: []*config.Metric{
+					{
+						Name: "tableAddr",
+						Oid:  "1.1.1.2",
+						Type: "OctetString",
+						Help: " - 1.1.1.2",
+						Indexes: []*config.Index{
+							{
+								Labelname: "tableIndex",
+								Type:      "gauge",
+							},
+						},
+					},
+				},
+			},
+		},
+		// Table with InetAddressType and InetAddressMissingSize index.
+		// Index becomes just InetAddressMissingSize.
+		{
+			node: &Node{Oid: "1", Label: "root",
+				Children: []*Node{
+					{Oid: "1.1", Label: "table",
+						Children: []*Node{
+							{Oid: "1.1.1", Label: "tableEntry", Indexes: []string{"tableAddrType", "tableAddr"},
+								Children: []*Node{
+									{Oid: "1.1.1.1", Access: "ACCESS_READONLY", Label: "tableAddrType", Type: "INTEGER", TextualConvention: "InetAddressType"},
+									{Oid: "1.1.1.2", Access: "ACCESS_READONLY", Label: "tableAddr", Type: "OCTETSTR", TextualConvention: "InetAddress"},
+								}}}}}},
+			cfg: &ModuleConfig{
+				Walk: []string{"1"},
+				Overrides: map[string]MetricOverrides{
+					"tableAddr": MetricOverrides{Type: "InetAddressMissingSize"},
+				},
+			},
+			out: &config.Module{
+				Walk: []string{"1"},
+				Metrics: []*config.Metric{
+					{
+						Name: "tableAddrType",
+						Oid:  "1.1.1.1",
+						Type: "gauge",
+						Help: " - 1.1.1.1",
+						Indexes: []*config.Index{
+							{
+								Labelname: "tableAddr",
+								Type:      "InetAddressMissingSize",
+							},
+						},
+					},
+					{
+						Name: "tableAddr",
+						Oid:  "1.1.1.2",
+						Type: "InetAddressMissingSize",
+						Help: " - 1.1.1.2",
+						Indexes: []*config.Index{
+							{
+								Labelname: "tableAddr",
+								Type:      "InetAddressMissingSize",
+							},
+						},
+					},
+				},
+			},
+		},
+		// Table with InetAddressType and InetAddressMissingSize index in wrong order gets dropped.
+		{
+			node: &Node{Oid: "1", Label: "root",
+				Children: []*Node{
+					{Oid: "1.1", Label: "table",
+						Children: []*Node{
+							{Oid: "1.1.1", Label: "tableEntry", Indexes: []string{"tableAddr", "tableAddrType"},
+								Children: []*Node{
+									{Oid: "1.1.1.1", Access: "ACCESS_READONLY", Label: "tableAddrType", Type: "INTEGER", TextualConvention: "InetAddressType"},
+									{Oid: "1.1.1.2", Access: "ACCESS_READONLY", Label: "tableAddr", Type: "OCTETSTR", TextualConvention: "InetAddress"},
+								}}}}}},
+			cfg: &ModuleConfig{
+				Walk: []string{"1"},
+				Overrides: map[string]MetricOverrides{
+					"tableAddr": MetricOverrides{Type: "InetAddressMissingSize"},
+				},
+			},
+			out: &config.Module{
+				Walk: []string{"1"},
+			},
+		},
+		// Table with LldpPortIdSubtype and LldpPortId index.
+		// Index becomes just LldpPortId.
+		{
+			node: &Node{Oid: "1", Label: "root",
+				Children: []*Node{
+					{Oid: "1.1", Label: "table",
+						Children: []*Node{
+							{Oid: "1.1.1", Label: "tableEntry", Indexes: []string{"tableAddrType", "tableAddr"},
+								Children: []*Node{
+									{Oid: "1.1.1.1", Access: "ACCESS_READONLY", Label: "tableAddrType", Type: "INTEGER", TextualConvention: "LldpPortIdSubtype"},
+									{Oid: "1.1.1.2", Access: "ACCESS_READONLY", Label: "tableAddr", Type: "OCTETSTR", TextualConvention: "LldpPortId"},
+								}}}}}},
+			cfg: &ModuleConfig{
+				Walk: []string{"1"},
+			},
+			out: &config.Module{
+				Walk: []string{"1"},
+				Metrics: []*config.Metric{
+					{
+						Name: "tableAddrType",
+						Oid:  "1.1.1.1",
+						Type: "gauge",
+						Help: " - 1.1.1.1",
+						Indexes: []*config.Index{
+							{
+								Labelname: "tableAddr",
+								Type:      "LldpPortId",
+							},
+						},
+					},
+					{
+						Name: "tableAddr",
+						Oid:  "1.1.1.2",
+						Type: "LldpPortId",
+						Help: " - 1.1.1.2",
+						Indexes: []*config.Index{
+							{
+								Labelname: "tableAddr",
+								Type:      "LldpPortId",
 							},
 						},
 					},
@@ -1211,7 +1871,7 @@ func TestGenerateConfigModule(t *testing.T) {
 		},
 	}
 	for i, c := range cases {
-		// Indexes and lookups always end up initilized.
+		// Indexes and lookups always end up initialized.
 		for _, m := range c.out.Metrics {
 			if m.Indexes == nil {
 				m.Indexes = []*config.Index{}

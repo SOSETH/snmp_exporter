@@ -69,19 +69,25 @@ type Node struct {
 	FixedSize         int
 	Units             string
 	Access            string
+	EnumValues        map[int]string
 
-	Indexes []string
+	Indexes      []string
+	ImpliedIndex bool
 }
 
 // Copy returns a deep copy of the tree underneath the current Node.
 func (n *Node) Copy() *Node {
 	newNode := *n
 	newNode.Children = make([]*Node, 0, len(n.Children))
+	newNode.EnumValues = make(map[int]string, len(n.EnumValues))
 	newNode.Indexes = make([]string, len(n.Indexes))
 	copy(newNode.Indexes, n.Indexes)
-	// Deep copy children.
+	// Deep copy children and enums.
 	for _, child := range n.Children {
 		newNode.Children = append(newNode.Children, child.Copy())
+	}
+	for k, v := range n.EnumValues {
+		newNode.EnumValues[k] = v
 	}
 	return &newNode
 }
@@ -125,7 +131,7 @@ var (
 	}
 )
 
-// Initilise NetSNMP. Returns MIB parse errors.
+// Initialize NetSNMP. Returns MIB parse errors.
 //
 // Warning: This function plays with the stderr file descriptor.
 func initSNMP() string {
@@ -157,7 +163,7 @@ func initSNMP() string {
 		ch <- string(data)
 	}()
 
-	// Do the initilization.
+	// Do the initialization.
 	C.netsnmp_init_mib()
 
 	// Restore stderr to normal.
@@ -195,6 +201,13 @@ func buildMIBTree(t *C.struct_tree, n *Node, oid string) {
 	n.FixedSize = int(C.get_tc_fixed_size(t.tc_index))
 	n.Units = C.GoString(t.units)
 
+	n.EnumValues = map[int]string{}
+	enum := t.enums
+	for enum != nil {
+		n.EnumValues[int(enum.value)] = C.GoString(enum.label)
+		enum = enum.next
+	}
+
 	if t.child_list == nil {
 		return
 	}
@@ -215,6 +228,9 @@ func buildMIBTree(t *C.struct_tree, n *Node, oid string) {
 	indexes := []string{}
 	for index != nil {
 		indexes = append(indexes, C.GoString(index.ilabel))
+		if index.isimplied != 0 {
+			n.ImpliedIndex = true
+		}
 		index = index.next
 	}
 	n.Indexes = indexes

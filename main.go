@@ -37,6 +37,7 @@ import (
 var (
 	configFile    = kingpin.Flag("config.file", "Path to configuration file.").Default("snmp.yml").String()
 	listenAddress = kingpin.Flag("web.listen-address", "Address to listen on for web interface and telemetry.").Default(":9116").String()
+	dryRun        = kingpin.Flag("dry-run", "Only verify configuration is valid and exit.").Default("false").Bool()
 
 	// Metrics about the SNMP exporter itself.
 	snmpDuration = prometheus.NewSummaryVec(
@@ -79,7 +80,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	module, ok := (*(sc.C))[moduleName]
 	sc.RUnlock()
 	if !ok {
-		http.Error(w, fmt.Sprintf("Unkown module '%s'", moduleName), 400)
+		http.Error(w, fmt.Sprintf("Unknown module '%s'", moduleName), 400)
 		snmpRequestErrors.Inc()
 		return
 	}
@@ -89,10 +90,10 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	registry := prometheus.NewRegistry()
 	collector := collector{target: target, module: module}
 	registry.MustRegister(collector)
-	// Delegate http serving to Promethues client library, which will call collector.Collect.
+	// Delegate http serving to Prometheus client library, which will call collector.Collect.
 	h := promhttp.HandlerFor(registry, promhttp.HandlerOpts{})
 	h.ServeHTTP(w, r)
-	duration := float64(time.Since(start).Seconds())
+	duration := time.Since(start).Seconds()
 	snmpDuration.WithLabelValues(moduleName).Observe(duration)
 	log.Debugf("Scrape of target '%s' with module '%s' took %f seconds", target, moduleName, duration)
 }
@@ -144,12 +145,19 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error parsing config file: %s", err)
 	}
-	// Initilise metrics.
-	for module, _ := range *sc.C {
+
+	// Exit if in dry-run mode.
+	if *dryRun {
+		log.Infoln("Configuration parsed successfully.")
+		return
+	}
+
+	// Initialize metrics.
+	for module := range *sc.C {
 		snmpDuration.WithLabelValues(module)
 	}
 
-	hup := make(chan os.Signal)
+	hup := make(chan os.Signal, 1)
 	reloadCh = make(chan chan error)
 	signal.Notify(hup, syscall.SIGHUP)
 	go func() {
@@ -208,7 +216,7 @@ func main() {
 		c, err := yaml.Marshal(sc.C)
 		sc.RUnlock()
 		if err != nil {
-			log.Warnf("Error marshalling configuration: %v", err)
+			log.Warnf("Error marshaling configuration: %v", err)
 			http.Error(w, err.Error(), 500)
 			return
 		}

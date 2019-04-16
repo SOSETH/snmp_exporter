@@ -14,7 +14,7 @@ releases](https://github.com/prometheus/snmp_exporter/releases) page.
 
 ## Usage
 
-```
+```sh
 ./snmp_exporter
 ```
 
@@ -32,7 +32,7 @@ The default `snmp.yml` covers a variety of common hardware for which
 MIBs are available to the public, walking them using SNMP v2 GETBULK.
 
 You'll need to use the generator in all but the simplest of setups. It is
-needed to customise which objects are walked, use non-public MIBs or specify
+needed to customize which objects are walked, use non-public MIBs or specify
 authentication parameters.
 
 ## Prometheus Configuration
@@ -62,3 +62,10 @@ scrape_configs:
 This setup allows Prometheus to provide scheduling and service discovery, as
 unlike all other exporters running an exporter on the machine from which we are
 getting the metrics from is not possible.
+
+## Large counter value handling
+
+In order to provide accurate counters for large Counter64 values, the exporter will automatically
+wrap the value every 2^53 to avoid 64-bit float rounding.
+
+To disable this feature, use the command line flag `--no-snmp.wrap-large-counters`.

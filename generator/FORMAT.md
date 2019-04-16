@@ -5,7 +5,9 @@ have to care about how this works.
 
 ```
 module_name:
-  # There's various auth/version options here too. See the main README.
+  auth:
+    # There's various auth/version options here too. See the main README.
+    community: public
   walk:
     # List of OID subtrees to walk.
     - 1.3.6.1.2.1.2
@@ -35,6 +37,10 @@ module_name:
         fixed_size: 8   # Only possible for OctetString/DisplayString types.
                         # If only one length is possible this is it. Otherwise
                         # this will be 0 or missing.
+      - labelname: someOtherString
+        type: OctetString
+        implied: true   # Only possible for OctetString/DisplayString types.
+                        # Must be the last index. See RFC2578 section 7.7.
    - name:  ifSpeed
      oid:   1.3.6.1.2.1.2.2.1.5
      type:  gauge
@@ -44,7 +50,7 @@ module_name:
      # Lookups take original indexes, look them up in another part of the
      # oid tree and overwrite the given output label.
      lookups:
-       - labels: [ifDescr]         # Input label name(s).
+       - labels: [ifDescr]         # Input label name(s). Empty means delete the output label.
          oid: 1.3.6.1.2.1.2.2.1.2  # OID to look under.
          labelname: ifDescr        # Output label name.
          type: OctetString         # Type of output object.
@@ -53,4 +59,7 @@ module_name:
        Temp: # A new metric will be created appending this to the metricName to become metricNameTemp.
          - regex: '(.*)' # Regex to extract a value from the returned SNMP walks's value.
            value: '$1' # Parsed as float64, defaults to $1.
+     enum_values: # Enum for this metric. Only used with the enum types.
+        0: true
+        1: false
 ```
